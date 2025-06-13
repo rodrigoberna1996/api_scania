@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+httpx[http2]
+redis>=4.2.0
+pydantic
+pydantic-settings
+apscheduler
+pytest
+pytest-asyncio

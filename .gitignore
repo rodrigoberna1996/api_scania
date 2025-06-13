@@ -1,0 +1,47 @@
+# Entorno virtual
+.venv/
+env/
+venv/
+
+# Archivos de entorno y configuración local
+.env
+.env.*
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de logs
+*.log
+
+# Carpeta de migraciones si usas Alembic (opcional)
+alembic/versions/
+
+# Carpeta de dependencias instaladas (pip)
+pip-wheel-metadata/
+*.egg-info/
+
+# IDEs
+.idea/
+.vscode/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Cachés de pytest
+.pytest_cache/
+
+# Archivos estáticos / build (si los tienes)
+static/
+build/
+dist/
+
+# Archivos de base de datos local (SQLite por ejemplo)
+*.sqlite3
+*.db
+
+# Otros
+__pypackages__/
+notas.txt
