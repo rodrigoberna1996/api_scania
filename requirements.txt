@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 httpx[http2]
-redis>=4.2.0
+redis>=4.5.4
 pydantic
 pydantic-settings
 apscheduler

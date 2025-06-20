@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = ""
     REDIS_URL: str = "redis://localhost:6379"
     TOKEN_EXPIRE_SECONDS: int = 3600  # 1 hour
+    SHAREPOINT_CLIENT_ID: str = ""
+    SHAREPOINT_CLIENT_SECRET: str = ""
 
     class Config:
         env_file = ".env"

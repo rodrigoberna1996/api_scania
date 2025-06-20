@@ -132,7 +132,7 @@ class ScaniaClient:
             return r.json()
 ''',
 
-                "auth_service.py": '''from typing import Optional
+                "auth.py": '''from typing import Optional
 import asyncio
 
 from app.core.redis_client import get_redis_client

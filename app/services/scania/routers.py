@@ -1,6 +1,6 @@
 # app/services/scania/routers.py
 from fastapi import APIRouter
-from app.services.scania.auth_service import auth_service
+from app.services.scania.auth import auth_service
 
 router = APIRouter()
 
