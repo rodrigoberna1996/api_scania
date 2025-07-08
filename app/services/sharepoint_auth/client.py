@@ -1,4 +1,4 @@
-# app/services/sharepoint/client.py
+# app/services/sharepoint_auth/client.py
 
 import httpx
 from app.config import settings

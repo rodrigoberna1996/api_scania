@@ -1,9 +1,16 @@
 fastapi
 uvicorn[standard]
 httpx[http2]
-redis>=4.5.4
+redis
 pydantic
 pydantic-settings
 apscheduler
 pytest
 pytest-asyncio
+
+SQLAlchemy
+python-dateutil
+asyncpg
+greenlet
+pandas
+openpyxl

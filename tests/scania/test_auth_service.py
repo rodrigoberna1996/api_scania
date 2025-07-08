@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from app.services.scania.auth import auth_service
+from app.services.scania_auth.auth import auth_service
 
 @pytest.mark.asyncio
 async def test_token_fetch():

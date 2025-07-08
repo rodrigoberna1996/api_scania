@@ -1,10 +1,10 @@
-# app/services/scania/auth.py
+# app/services/scania_auth/auth.py
 
 from typing import Optional
 from app.core.redis_client import get_redis_client
 from app.core.security import create_challenge_response
 from app.config import settings
-from app.services.scania.client import ScaniaClient
+from app.services.scania_auth.client import ScaniaClient
 
 REDIS_TOKEN_KEY = "scania_api_token"
 REDIS_REFRESH_TOKEN_KEY = "scania_refresh_token"

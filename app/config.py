@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     TOKEN_EXPIRE_SECONDS: int = 3600  # 1 hour
     SHAREPOINT_CLIENT_ID: str = ""
     SHAREPOINT_CLIENT_SECRET: str = ""
+    DATABASE_URL: str = ""
 
     class Config:
         env_file = ".env"

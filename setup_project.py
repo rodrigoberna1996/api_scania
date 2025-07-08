@@ -6,12 +6,12 @@ structure = {
     "app": {
         "__init__.py": "",
         "main.py": '''from fastapi import FastAPI
-from app.services.scania.routers import router as scania_router
+from app.services.scania_auth.routers import router as scania_router
 from app.core.scheduler import start_scheduler
 
 app = FastAPI(title="My Scania Microservice")
 
-app.include_router(scania_router, prefix="/scania", tags=["Scania"])
+app.include_router(scania_router, prefix="/scania_auth", tags=["Scania"])
 
 @app.on_event("startup")
 async def startup_event():
@@ -94,7 +94,7 @@ def create_challenge_response(secret_key: str, challenge: str) -> str:
 
         "services": {
             "__init__.py": "",
-            "scania": {
+            "scania_auth": {
                 "__init__.py": "",
                 "client.py": '''import httpx
 from app.config import settings
@@ -138,7 +138,7 @@ import asyncio
 from app.core.redis_client import get_redis_client
 from app.core.security import create_challenge_response
 from app.config import settings
-from app.services.scania.client import ScaniaClient
+from app.services.scania_auth.client import ScaniaClient
 from app.core.scheduler import scheduler
 
 REDIS_TOKEN_KEY = "scania_api_token"
@@ -193,7 +193,7 @@ scheduler.add_job(refresh_token_job, 'interval', minutes=55)
 ''',
 
                 "routers.py": '''from fastapi import APIRouter
-from app.services.scania.auth_service import auth_service
+from app.services.scania_auth.auth_service import auth_service
 
 router = APIRouter()
 
@@ -221,11 +221,11 @@ class TokenResponse(BaseModel):
     },
 
     "tests": {
-        "scania": {
+        "scania_auth": {
             "__init__.py": "",
             "test_auth_service.py": '''import pytest
 import asyncio
-from app.services.scania.auth_service import auth_service
+from app.services.scania_auth.auth_service import auth_service
 
 @pytest.mark.asyncio
 async def test_token_fetch():
