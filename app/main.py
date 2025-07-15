@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.services.scania_auth.routers import router as scania_router
 from app.services.reporting_service.routers import router as reporting_router
+from app.services.scania_vehicles.routers import router as vehicles_router
+from app.services.scania_vehicles_status.routers import router as vehicle_history_router
 
 from app.core.scheduler import start_scheduler, shutdown_scheduler
 import uvicorn
@@ -35,6 +37,8 @@ def health_check():
 
 app.include_router(scania_router, prefix="/api/scania_auth", tags=["Scania"])
 app.include_router(reporting_router, prefix="/api/reporting", tags=["Reporting"])
+app.include_router(vehicles_router, prefix="/api/scania_vehicles", tags=["Scania Vehicles"])
+app.include_router(vehicle_history_router, prefix="/api/vehicle_history", tags=["Vehicle History"])
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

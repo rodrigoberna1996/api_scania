@@ -1,6 +1,6 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.services.scania_auth.jobs import refresh_scania_token
-from app.services.sharepoint_auth.jobs import refresh_sharepoint_token, update_sharepoint_items
+from app.services.sharepoint_auth.jobs import refresh_sharepoint_token, update_sharepoint_items, update_sharepoint_reassignments
 
 scheduler = AsyncIOScheduler()
 
@@ -10,7 +10,7 @@ def start_scheduler():
         scheduler.add_job(
             refresh_scania_token,
             trigger="interval",
-            minutes=30,
+            minutes=1,
             id="refresh_token_job",
             replace_existing=True
         )
@@ -29,8 +29,18 @@ def start_scheduler():
             update_sharepoint_items,
             trigger="interval",
             #hour="0,12",
-            minutes=25,
+            minutes=5,
             id="update_sharepoint_items_job",
+            replace_existing=True
+        )
+
+    if not scheduler.get_job("update_sharepoint_reassignments"):
+        scheduler.add_job(
+            update_sharepoint_reassignments,
+            trigger="interval",
+            #hour="0,12",
+            minutes=5,
+            id="update_sharepoint_reassignments",
             replace_existing=True
         )
 
