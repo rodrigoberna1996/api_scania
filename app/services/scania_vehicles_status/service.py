@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from app.services.scania_vehicles_status.client import vehicle_status_client
+from app.services.scania_vehicles_status.evaluation_client import evaluation_client
 from app.services.scania_vehicles_status.schemas import (
     VehicleHistoricalData,
     VehicleSummaryData,
@@ -94,18 +95,43 @@ async def get_vehicle_historical_data(
 
     adblue_consumido = round(adblue_consumido, 2)
 
+    # ── 4. Datos de Vehicle Evaluation ───────────────────────────────
+    eval_distance: float | None = None
+    eval_fuel: float | None = None
+    try:
+        start_dt = datetime.fromisoformat(starttime.replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(stoptime.replace("Z", "+00:00"))
+        evaluation = await evaluation_client.get_evaluation(
+            vin=vin,
+            start_date=start_dt.strftime("%Y%m%d%H%M"),
+            end_date=end_dt.strftime("%Y%m%d%H%M"),
+        )
+        vehicles = evaluation.get("VehicleList") or evaluation.get("EvaluationVehicles")
+        if vehicles:
+            ev = vehicles[0]
+            if ev.get("Distance") is not None:
+                eval_distance = float(ev["Distance"])
+            if ev.get("TotalFuelConsumption") is not None:
+                eval_fuel = float(ev["TotalFuelConsumption"])
+    except Exception:
+        pass
+
     # ── 4. Resumen ───────────────────────────────────────────────────
     resumen: Optional[VehicleSummaryData] = None
     if len(historico) >= 2:
         inicio, fin = historico[0], historico[-1]
+        km_value = eval_distance if eval_distance is not None else fin.km_recorridos - inicio.km_recorridos
+        diesel_value = eval_fuel if eval_fuel is not None else (
+            (fin.consumo_lts_diesel or 0) - (inicio.consumo_lts_diesel or 0)
+        )
         resumen = VehicleSummaryData(
             vin=vin,
             start_timestamp=inicio.timestamp,
             end_timestamp=fin.timestamp,
-            km_recorridos=fin.km_recorridos - inicio.km_recorridos,
-            consumo_lts_diesel=(fin.consumo_lts_diesel or 0)
-            - (inicio.consumo_lts_diesel or 0),
+            km_recorridos=km_value,
+            consumo_lts_diesel=diesel_value,
             lts_adblue_consumidos=adblue_consumido,
+            odometro=fin.km_recorridos,
         )
 
     return {

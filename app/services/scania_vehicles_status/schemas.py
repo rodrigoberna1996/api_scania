@@ -16,6 +16,7 @@ class VehicleSummaryData(BaseModel):
     km_recorridos: float
     consumo_lts_diesel: float
     lts_adblue_consumidos: float
+    odometro: float
 
 class VehicleHistoryResponse(BaseModel):
     historical_data: List[VehicleHistoricalData]
