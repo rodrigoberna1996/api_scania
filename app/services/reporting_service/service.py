@@ -27,7 +27,10 @@ from app.services.reporting_service.repository import (
     get_filtered_logs,
     get_reassignment_by_title,
 )
-from app.services.sharepoint_auth.ms_graph import leer_excel_desde_onedrive
+from app.services.sharepoint_auth.ms_graph import (
+    leer_excel_desde_onedrive,
+    leer_diesel_desde_onedrive,
+)
 from app.services.scania_vehicles.vehicle_map import get_vehicle_map
 from app.services.scania_vehicles_status.service import get_vehicle_historical_data
 
@@ -129,12 +132,25 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     peajes_df["Costo final"]   = pd.to_numeric(peajes_df["Costo final"], errors="coerce")
 
     def costo_peajes(r):
-        eco = r["No. Económico"]
+        """Devuelve el costo total de peajes para el rango indicado en la fila.
+
+        La función acepta filas en el formato original del DataFrame base
+        (columnas 'fecha_carga', 'hora_carga', ...) o en el formato ya
+        transformado del DataFrame final ('FECHA_CARGA', 'HORA_CARGA', ...).
+        """
+
+        eco = r.get("No. Económico") or r.get("NO_TRACTO")
+        fecha_carga = r.get("fecha_carga") or r.get("FECHA_CARGA")
+        hora_carga = r.get("hora_carga") or r.get("HORA_CARGA")
+        fecha_descarga = r.get("fecha_descarga") or r.get("FECHA_DESCARGA")
+        hora_descarga = r.get("hora_descarga") or r.get("HORA_DESCARGA")
+
         try:
-            ini = pd.to_datetime(f"{r['fecha_carga'].date()} {r['hora_carga']}")
-            fin = pd.to_datetime(f"{r['fecha_descarga'].date()} {r['hora_descarga']}")
+            ini = pd.to_datetime(f"{pd.to_datetime(fecha_carga).date()} {hora_carga}")
+            fin = pd.to_datetime(f"{pd.to_datetime(fecha_descarga).date()} {hora_descarga}")
         except Exception:
             return 0
+
         sel = peajes_df[
             (peajes_df["No. Económico"] == eco)
             & (peajes_df["Fecha"].between(ini, fin))
@@ -146,22 +162,11 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     df["TOTAL_PEAJES"] = (df["PEAJES_VIAPASS"] + df["PEAJES_EFECTIVO"]).round(2)
 
     # ╠═══════════════ 3-bis. DIESEL ═══════════════════════════════════════╣
-    # Lee Diesel.xlsx igual que Peajes.xlsx y deja listo un lookup por fecha
-    diesel_df = await leer_excel_desde_onedrive("Diesel.xlsx", header_row=4)
+    # Lee Diesel.xlsx y prepara un lookup de precios sin IVA
+    diesel_df = await leer_diesel_desde_onedrive()
 
-    # ── normaliza nombres ────────────────────────────────────────────────
+    # Normaliza encabezados en mayúsculas para facilitar las búsquedas
     diesel_df.columns = diesel_df.columns.str.strip().str.upper()
-
-    # Asegúrate de que las dos columnas que necesitamos existan exactamente así
-    # (corrige aquí si tus encabezados son distintos)
-    if "FECHA" not in diesel_df.columns or "PRECIO" not in diesel_df.columns:
-        raise RuntimeError(
-            f"Columnas Diesel inesperadas: {diesel_df.columns.tolist()}"
-        )
-
-    # ── tipos ────────────────────────────────────────────────────────────
-    diesel_df["FECHA"] = pd.to_datetime(diesel_df["FECHA"], dayfirst=True, errors="coerce")
-    diesel_df["PRECIO"] = pd.to_numeric(diesel_df["PRECIO"], errors="coerce")
 
     # ── helper de lookup (precio SIN IVA) ────────────────────────────────
     def _precio_diesel_por_fecha(fecha: str | pd.Timestamp) -> float | None:
@@ -171,8 +176,7 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
         rows = diesel_df[diesel_df["FECHA"] <= fecha]
         if rows.empty:
             return None
-        precio_bruto = rows.iloc[-1]["PRECIO"]
-        return round(precio_bruto / 1.16, 2)
+        return float(rows.iloc[-1]["PRECIO_DIESEL"])
 
         # ╠═══════════════ 4. ORDEN Y MAPEOS ════════════════════════════════╣
     df["eco_num"] = pd.to_numeric(
