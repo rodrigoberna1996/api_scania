@@ -30,6 +30,7 @@ from app.services.reporting_service.repository import (
 from app.services.sharepoint_auth.ms_graph import (
     leer_excel_desde_onedrive,
     leer_diesel_desde_onedrive,
+    leer_factores_desde_onedrive,
 )
 from app.services.scania_vehicles.vehicle_map import get_vehicle_map
 from app.services.scania_vehicles_status.service import get_vehicle_historical_data
@@ -345,11 +346,15 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     # ╠═══════════════ 7. FILTRA POR MES ════════════════════════════════╣
     df_final["FECHA_CARGA"] = pd.to_datetime(df_final["FECHA_CARGA"], errors="coerce")
     df_export = df_final[df_final["FECHA_CARGA"].dt.month == mes].copy()
+    df_export["ODOMETRO"] = None
 
     # ╠═══════════════ 8. DATOS SCANIA (km/diesel/adblue) ════════════════╣
     vin_map = await get_vehicle_map()
     sem = Semaphore(3)
-    _cache: dict[tuple[str, str, str], tuple[float | None, float | None, float | None]] = {}
+    _cache: dict[
+        tuple[str, str, str],
+        tuple[float | None, float | None, float | None, float | None],
+    ] = {}
 
     def hhmmss(t):
         return "00:00:00" if t is None or pd.isna(t) else str(t).split(" ")[-1][:8]
@@ -362,7 +367,7 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
             or pd.isna(row["FECHA_CARGA"])
             or pd.isna(row["FECHA_DESCARGA"])
         ):
-            return idx, None, None, None
+            return idx, None, None, None, None
 
         start = f"{row['FECHA_CARGA'].date()}T{hhmmss(row['HORA_CARGA'])}Z"
         stop  = f"{row['FECHA_DESCARGA'].date()}T{hhmmss(row['HORA_DESCARGA'])}Z"
@@ -377,19 +382,25 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
                     timeout=20,
                 )
                 s = resp["summary"]
-                km, diesel, adblue = (
-                    (s.km_recorridos, s.consumo_lts_diesel, s.lts_adblue_consumidos)
-                    if s else (None, None, None)
+                km, diesel, adblue, odo = (
+                    (
+                        s.km_recorridos,
+                        s.consumo_lts_diesel,
+                        s.lts_adblue_consumidos,
+                        s.odometro,
+                    )
+                    if s
+                    else (None, None, None, None)
                 )
             except (asyncio.TimeoutError, httpx.TimeoutException, httpx.ReadTimeout):
                 logger.warning("Timeout Scania %s  %s–%s", vin, start, stop)
-                km = diesel = adblue = None
+                km = diesel = adblue = odo = None
             except Exception:
                 logger.exception("Fallo Scania %s  %s–%s", vin, start, stop)
-                km = diesel = adblue = None
+                km = diesel = adblue = odo = None
 
-        _cache[key] = (km, diesel, adblue)
-        return idx, km, diesel, adblue
+        _cache[key] = (km, diesel, adblue, odo)
+        return idx, km, diesel, adblue, odo
 
     tasks = [
         fetch_scania(i, r)
@@ -400,11 +411,12 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     for res in await gather(*tasks, return_exceptions=True):
         if isinstance(res, Exception):
             continue
-        idx, km, diesel, adblue = res
+        idx, km, diesel, adblue, odo = res
         if km is not None:
             df_export.at[idx, "KM_RECORRIDOS"]         = round(km, 0)
             df_export.at[idx, "CONSUMO_LTS_DIESEL"]    = round(diesel, 0)
             df_export.at[idx, "LTS_ADBLUE_CONSUMIDOS"] = round(adblue, 2)
+            df_export.at[idx, "ODOMETRO"]              = round(odo, 0)
 
     # ── normaliza cadenas vacías/None a float y rellena 0 ──────────────
     for col in ["KM_RECORRIDOS", "CONSUMO_LTS_DIESEL", "LTS_ADBLUE_CONSUMIDOS"]:
@@ -419,6 +431,28 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
             pd.to_numeric(df_export["CONSUMO_LTS_DIESEL"], errors="coerce") *
             pd.to_numeric(df_export["PRECIO_DIESEL"], errors="coerce")
     ).round(2)
+
+    # ╠═══════════════ 8-ter. MANTTO TRACTOS ════════════════════════════╣
+    factores_df = await leer_factores_desde_onedrive()
+
+    def _factor_por_odometro(odo: float | None) -> float:
+        if odo is None or pd.isna(odo):
+            return 0.0
+        row = factores_df[
+            (factores_df["Rango1"] <= odo) & (odo <= factores_df["Rango2"])
+        ]
+        if row.empty:
+            return 0.0
+        return float(row.iloc[0]["Factor"])
+
+    df_export["MANTTO_TRACTOS"] = (
+        df_export.apply(
+            lambda r: _factor_por_odometro(r["ODOMETRO"]) *
+            pd.to_numeric(r["KM_RECORRIDOS"], errors="coerce"),
+            axis=1,
+        )
+    ).round(2)
+    df_export = df_export.drop(columns=["ODOMETRO"])
 
     df_export["eco_sort"] = pd.to_numeric(
         df_export["NO_TRACTO"].str.replace("ECO", "").str.strip(),

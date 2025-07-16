@@ -131,6 +131,7 @@ async def get_vehicle_historical_data(
             km_recorridos=km_value,
             consumo_lts_diesel=diesel_value,
             lts_adblue_consumidos=adblue_consumido,
+            odometro=fin.km_recorridos,
         )
 
     return {
