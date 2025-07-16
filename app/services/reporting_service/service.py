@@ -165,8 +165,13 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     # Lee Diesel.xlsx y prepara un lookup de precios sin IVA
     diesel_df = await leer_diesel_desde_onedrive()
 
-    # Normaliza encabezados en mayúsculas para facilitar las búsquedas
+    # Normaliza encabezados y tipos para facilitar las búsquedas por fecha
     diesel_df.columns = diesel_df.columns.str.strip().str.upper()
+    if "FECHA" in diesel_df.columns:
+        diesel_df["FECHA"] = pd.to_datetime(
+            diesel_df["FECHA"], dayfirst=True, errors="coerce"
+        )
+        diesel_df = diesel_df.sort_values("FECHA").reset_index(drop=True)
 
     # ── helper de lookup (precio SIN IVA) ────────────────────────────────
     def _precio_diesel_por_fecha(fecha: str | pd.Timestamp) -> float | None:
