@@ -35,3 +35,21 @@ async def leer_excel_desde_onedrive(nombre_archivo: str, *, header_row: int = 8)
         df = pd.read_excel(BytesIO(res.content), header=header_row)
         df.columns = df.columns.str.strip()              # quita espacios
         return df
+
+
+# Helper específico para Diesel.xlsx
+async def leer_diesel_desde_onedrive(nombre_archivo: str = "Diesel.xlsx") -> pd.DataFrame:
+    """Descarga Diesel.xlsx y calcula PRECIO_DIESEL y COSTO_DIESEL."""
+    df = await leer_excel_desde_onedrive(nombre_archivo, header_row=4)
+    df.columns = df.columns.str.strip()
+
+    # Normaliza nombres esperados
+    if "Precio" not in df.columns or "Lts" not in df.columns:
+        raise RuntimeError(f"Columnas Diesel inesperadas: {df.columns.tolist()}")
+
+    df["Precio"] = pd.to_numeric(df["Precio"], errors="coerce")
+    df["Lts"] = pd.to_numeric(df["Lts"], errors="coerce")
+
+    df["PRECIO_DIESEL"] = (df["Precio"] / 1.16).round(2)
+    df["COSTO_DIESEL"] = (df["PRECIO_DIESEL"] * df["Lts"]).round(2)
+    return df
