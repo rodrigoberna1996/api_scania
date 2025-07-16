@@ -15,7 +15,7 @@ async def leer_excel_desde_onedrive(
     nombre_archivo: str,
     *,
     header_row: int = 8,
-    sheet_name: str | None = None,
+    sheet_name: str | int = 0,
 ) -> pd.DataFrame:
     """
     Descarga un Excel de la carpeta Plantilla Costos y lo devuelve como DataFrame.
@@ -42,7 +42,13 @@ async def leer_excel_desde_onedrive(
             header=header_row,
             sheet_name=sheet_name,
         )
-        df.columns = df.columns.str.strip()              # quita espacios
+
+        # pd.read_excel devuelve un dict si sheet_name=None; garantizamos
+        # retornar siempre un DataFrame usando la primera hoja si es el caso
+        if isinstance(df, dict):
+            df = next(iter(df.values()))
+
+        df.columns = df.columns.str.strip()  # quita espacios
         return df
 
 
