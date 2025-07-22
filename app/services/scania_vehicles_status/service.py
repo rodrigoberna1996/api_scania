@@ -1,6 +1,6 @@
 # app/services/scania_vehicles_status/service.py
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.services.scania_vehicles_status.client import vehicle_status_client
 from app.services.scania_vehicles_status.evaluation_client import evaluation_client
@@ -22,17 +22,24 @@ async def get_vehicle_historical_data(
     """Histórico + resumen.  Calcula litros de AdBlue consumidos
     asumiendo un tanque de 105 L y tomando únicamente las caídas
     de nivel (las subidas ≃ recarga y no computan)."""
-    # ── 1. Obtiene el histórico ──────────────────────────────────────
-    response = await vehicle_status_client.get_vehicle_status(
-        vin=vin,
-        starttime=starttime,
-        stoptime=stoptime,
-        content_filter="HEADER,SNAPSHOT,ACCUMULATED",
-        latest_only=False,
-    )
-    statuses: List[dict] = (
-        response.get("vehicleStatusResponse", {}).get("vehicleStatuses", [])
-    )
+    # ── 1. Obtiene el histórico en segmentos de 5 días ────────────────
+    start_dt = datetime.fromisoformat(starttime.replace("Z", "+00:00"))
+    stop_dt = datetime.fromisoformat(stoptime.replace("Z", "+00:00"))
+
+    statuses: List[dict] = []
+    current = start_dt
+    while current < stop_dt:
+        segment_end = min(current + timedelta(days=5), stop_dt)
+        resp = await vehicle_status_client.get_vehicle_status(
+            vin=vin,
+            starttime=current.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            stoptime=segment_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            content_filter="HEADER,SNAPSHOT,ACCUMULATED",
+            latest_only=False,
+        )
+        seg_statuses = resp.get("vehicleStatusResponse", {}).get("vehicleStatuses", [])
+        statuses.extend(seg_statuses)
+        current = segment_end
 
     # ── 2. Recorre y arma lista ordenada ─────────────────────────────
     historico: list[VehicleHistoricalData] = []
@@ -99,12 +106,10 @@ async def get_vehicle_historical_data(
     eval_distance: float | None = None
     eval_fuel: float | None = None
     try:
-        start_dt = datetime.fromisoformat(starttime.replace("Z", "+00:00"))
-        end_dt = datetime.fromisoformat(stoptime.replace("Z", "+00:00"))
         evaluation = await evaluation_client.get_evaluation(
             vin=vin,
             start_date=start_dt.strftime("%Y%m%d%H%M"),
-            end_date=end_dt.strftime("%Y%m%d%H%M"),
+            end_date=stop_dt.strftime("%Y%m%d%H%M"),
         )
         vehicles = evaluation.get("VehicleList") or evaluation.get("EvaluationVehicles")
         if vehicles:
