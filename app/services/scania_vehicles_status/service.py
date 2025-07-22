@@ -65,7 +65,7 @@ async def get_vehicle_historical_data(
                 timestamp=ts,
                 km_recorridos=km,
                 consumo_lts_diesel=diesel,
-                lts_adblue_consumidos=adblue_raw,  # valor tal cual
+                lts_adblue_consumidos=adblue_raw
             )
         )
 
@@ -117,12 +117,13 @@ async def get_vehicle_historical_data(
         pass
 
     # ── 4. Resumen ───────────────────────────────────────────────────
+    # ── 4. Resumen ───────────────────────────────────────────────────
     resumen: Optional[VehicleSummaryData] = None
     if len(historico) >= 2:
         inicio, fin = historico[0], historico[-1]
         km_value = eval_distance if eval_distance is not None else fin.km_recorridos - inicio.km_recorridos
         diesel_value = eval_fuel if eval_fuel is not None else (
-            (fin.consumo_lts_diesel or 0) - (inicio.consumo_lts_diesel or 0)
+                (fin.consumo_lts_diesel or 0) - (inicio.consumo_lts_diesel or 0)
         )
         resumen = VehicleSummaryData(
             vin=vin,
@@ -133,8 +134,27 @@ async def get_vehicle_historical_data(
             lts_adblue_consumidos=adblue_consumido,
             odometro=fin.km_recorridos,
         )
+    # ------- NUEVO: Si no hay históricos, pero sí evaluación -------
+    elif eval_distance is not None or eval_fuel is not None:
+        # Usa los datos de los parámetros originales como timestamp
+        try:
+            start_dt = datetime.fromisoformat(starttime.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(stoptime.replace("Z", "+00:00"))
+        except Exception:
+            start_dt = None
+            end_dt = None
+        resumen = VehicleSummaryData(
+            vin=vin,
+            start_timestamp=start_dt,
+            end_timestamp=end_dt,
+            km_recorridos=eval_distance if eval_distance is not None else 0,
+            consumo_lts_diesel=eval_fuel if eval_fuel is not None else 0,
+            lts_adblue_consumidos=adblue_consumido,  # normalmente será 0
+            odometro=eval_distance if eval_distance is not None else 0,
+        )
 
     return {
         "historical_data": historico,
         "summary": resumen,
     }
+

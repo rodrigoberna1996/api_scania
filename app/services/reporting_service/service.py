@@ -284,10 +284,6 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
 
     rows_out: List[pd.Series] = []
     for _, v in viajes.iterrows():
-        if v["ES_REASIG"]:
-            rows_out.append(v)
-            continue
-
         tracto, fc, hc = v["NO_TRACTO"], v["FECHA_CARGA"], v["HORA_CARGA"]
         prev = viajes[
             (viajes["NO_TRACTO"] == tracto)
