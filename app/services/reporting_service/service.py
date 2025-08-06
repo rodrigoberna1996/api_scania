@@ -111,14 +111,18 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     df["fecha_carga"]    = pd.to_datetime(df["fecha_carga"],    dayfirst=True, errors="coerce")
     df["fecha_descarga"] = pd.to_datetime(df["fecha_descarga"], dayfirst=True, errors="coerce")
 
-    def hora_fmt(row, campo, title):
-        if title in horas_reasig:
+    def hora_fmt(row, campo, title, use_reasig=False):
+        if use_reasig and title in horas_reasig:
             return horas_reasig[title].strftime("%H:%M:%S")
         h = pd.to_datetime(row[campo], errors="coerce")
         return None if pd.isna(h) else h.strftime("%H:%M:%S")
 
-    df["hora_descarga"] = df.apply(lambda r: hora_fmt(r, "hora_descarga", r["Title"]), axis=1)
-    df["hora_carga"]    = df.apply(lambda r: hora_fmt(r, "hora_carga",    r["Title"]), axis=1)
+    df["hora_descarga"] = df.apply(
+        lambda r: hora_fmt(r, "hora_descarga", r["Title"], use_reasig=True), axis=1
+    )
+    df["hora_carga"] = df.apply(
+        lambda r: hora_fmt(r, "hora_carga", r["Title"], use_reasig=False), axis=1
+    )
 
     # uniforma ECO
     df["No. Económico"] = df["No. Económico"].apply(
