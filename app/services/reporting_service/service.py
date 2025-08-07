@@ -261,6 +261,7 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
                 "COMISION_CLIENTE",
                 "COMISION_OPERADOR",
                 "GASTOS_OPERADOR",
+                "PEAJES_VIAPASS",
                 "PEAJES_EFECTIVO",
             ]:
                 d[c] = 0
@@ -355,6 +356,15 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     df_final["FECHA_CARGA"] = pd.to_datetime(df_final["FECHA_CARGA"], errors="coerce")
     df_export = df_final[df_final["FECHA_CARGA"].dt.month == mes].copy()
     df_export["ODOMETRO"] = None
+
+    # Ordena globalmente por fecha y hora de carga
+    df_export["hora_sort"] = pd.to_timedelta(
+        df_export["HORA_CARGA"].apply(_hora_to_hms)
+    )
+    df_export = (
+        df_export.sort_values(["FECHA_CARGA", "hora_sort"])
+        .drop(columns=["hora_sort"])
+    )
 
     # ╠═══════════════ 8. DATOS SCANIA (km/diesel/adblue) ════════════════╣
     vin_map = await get_vehicle_map()
