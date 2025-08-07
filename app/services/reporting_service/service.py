@@ -256,6 +256,15 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
             d["FECHA_DESCARGA"]  = fecha_desc_prin[t]
             d["HORA_DESCARGA"]   = hora_desc_prin[t]
             d["ES_REASIG"]       = True
+            for c in [
+                "COSTO_VIAJE",
+                "COMISION_CLIENTE",
+                "COMISION_OPERADOR",
+                "GASTOS_OPERADOR",
+                "PEAJES_VIAPASS",
+                "PEAJES_EFECTIVO",
+            ]:
+                d[c] = 0
             dup.append(d)
     if dup:
         df = pd.concat([df, pd.DataFrame(dup)], ignore_index=True)
@@ -326,12 +335,12 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
             df_final[col] = 0
         df_final[col] = pd.to_numeric(df_final[col], errors="coerce")
 
-    # Filtra filas sin peaje calculado (normalmente los viajes vacíos)
-    mask_vacios = df_final["PEAJES_VIAPASS"].isna() | (df_final["PEAJES_VIAPASS"] == 0)
+    # Filtra viajes vacíos (que vienen sin PEAJES_VIAPASS) y recalcula peajes
+    mask_vacios = df_final["CLIENTE"] == "VIAJE VACÍO"
 
     if mask_vacios.any():
         df_final.loc[mask_vacios, "PEAJES_VIAPASS"] = (
-                df_final[mask_vacios].apply(costo_peajes, axis=1) / 1.16
+            df_final[mask_vacios].apply(costo_peajes, axis=1) / 1.16
         ).round(2)
 
     # Asegura que PEAJES_EFECTIVO está numérico y rellena vacíos
@@ -454,19 +463,14 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     ).round(2)
     df_export = df_export.drop(columns=["ODOMETRO"])
 
-    df_export["eco_sort"] = pd.to_numeric(
-        df_export["NO_TRACTO"].str.replace("ECO", "").str.strip(),
-        errors="coerce"
-    )
-
     df_export["hora_sort"] = pd.to_timedelta(
         df_export["HORA_CARGA"].apply(_hora_to_hms)
     )
 
     df_export = (
         df_export
-        .sort_values(["eco_sort", "FECHA_CARGA", "hora_sort"])
-        .drop(columns=["eco_sort", "hora_sort"])
+        .sort_values(["FECHA_CARGA", "hora_sort"])
+        .drop(columns=["hora_sort"])
         .reset_index(drop=True)
     )
 
