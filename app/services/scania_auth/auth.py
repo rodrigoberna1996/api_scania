@@ -1,6 +1,7 @@
 # app/services/scania_auth/auth.py
 
 from typing import Optional
+import httpx
 from app.core.redis_client import get_redis_client
 from app.core.security import create_challenge_response
 from app.config import settings
@@ -35,7 +36,10 @@ class ScaniaAuthService:
         refresh_token = await self._get_refresh_token_from_redis()
         if not refresh_token:
             return await self.fetch_new_token()
-        token_data = await self.client.refresh_token(refresh_token)
+        try:
+            token_data = await self.client.refresh_token(refresh_token)
+        except httpx.HTTPStatusError:
+            return await self.fetch_new_token()
         await self._save_tokens_to_redis(token_data["token"], token_data["refreshToken"])
         return token_data["token"]
 
