@@ -472,18 +472,14 @@ async def generate_excel_report(session: AsyncSession, mes: int) -> StreamingRes
     ).round(2)
     df_export = df_export.drop(columns=["ODOMETRO"])
 
-    df_export["tracto_sort"] = pd.to_numeric(
-        df_export["NO_TRACTO"].str.replace("ECO", "").str.strip(),
-        errors="coerce",
-    )
     df_export["hora_sort"] = pd.to_timedelta(
         df_export["HORA_CARGA"].apply(_hora_to_hms)
     )
 
     df_export = (
         df_export
-        .sort_values(["tracto_sort", "FECHA_CARGA", "hora_sort"])
-        .drop(columns=["tracto_sort", "hora_sort"])
+        .sort_values(["FECHA_CARGA", "hora_sort"])
+        .drop(columns=["hora_sort"])
         .reset_index(drop=True)
     )
 
